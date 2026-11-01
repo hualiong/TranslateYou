@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,6 +63,7 @@ import com.bnyro.translate.R
 import com.bnyro.translate.ext.getText
 import com.bnyro.translate.ext.hasText
 import com.bnyro.translate.ui.components.ButtonWithIcon
+import com.bnyro.translate.ui.components.MorphingLoadingIndicator
 import com.bnyro.translate.ui.components.TranslationField
 import com.bnyro.translate.ui.models.TranslationModel
 import com.bnyro.translate.ui.models.UnsupportedLanguageException
@@ -77,6 +79,8 @@ fun TranslationComponent(
     viewModel: TranslationModel,
     showLanguageSelector: Boolean = false,
     largeTextFields: Boolean = true,
+    autoFocus: Boolean = true,
+    showSource: Boolean = true,
     onTranslationError: (e: String, important: Boolean) -> Unit
 ) {
     val context = LocalContext.current
@@ -129,100 +133,113 @@ fun TranslationComponent(
                 .verticalScroll(scrollState)
                 .fillMaxSize()
         ) {
-            val focusRequester = remember { FocusRequester() }
-            LaunchedEffect(Unit) {
-                // only focus automatically on initial app launch, not when switching tabs
-                if (!viewModel.alreadyAutoFocusedInputField) {
-                    viewModel.alreadyAutoFocusedInputField = true
-                    focusRequester.requestFocus()
-                }
-            }
-
-            TranslationField(
-                translationModel = viewModel,
-                isSourceField = true,
-                text = viewModel.insertedText,
-                language = viewModel.sourceLanguage.copy(
-                    code = viewModel.sourceLanguage.code.ifEmpty {
-                        viewModel.translation.detectedLanguage.orEmpty()
+            if (showSource) {
+                val focusRequester = remember { FocusRequester() }
+                LaunchedEffect(Unit) {
+                    // only focus automatically on initial app launch, not when switching tabs
+                    // the share popup passes false to keep the keyboard hidden
+                    if (autoFocus && !viewModel.alreadyAutoFocusedInputField) {
+                        viewModel.alreadyAutoFocusedInputField = true
+                        focusRequester.requestFocus()
                     }
-                ),
-                showLanguageSelector = showLanguageSelector,
-                largeTextFields = largeTextFields,
-                focusRequester = focusRequester,
-                setLanguage = {
-                    if (it == viewModel.targetLanguage) {
-                        viewModel.targetLanguage = viewModel.sourceLanguage
-                    }
-                    viewModel.sourceLanguage = it
                 }
-            ) {
-                viewModel.insertedText = it
-                hasClip = clipboard.hasText()
-                viewModel.enqueueTranslation()
-            }
 
-            if (viewModel.translating) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(10.dp)
-                )
-            } else {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(10.dp)
-                        .size(70.dp, 1.dp)
-                )
-            }
-
-            if (hasClip && viewModel.insertedText.isBlank()) {
-                Row {
-                    ButtonWithIcon(
-                        text = stringResource(R.string.paste),
-                        icon = Icons.Default.ContentPaste
-                    ) {
-                        coroutineScope.launch {
-                            viewModel.insertedText = clipboard.getText().orEmpty()
-                            viewModel.translateNow()
+                TranslationField(
+                    translationModel = viewModel,
+                    isSourceField = true,
+                    text = viewModel.insertedText,
+                    language = viewModel.sourceLanguage.copy(
+                        code = viewModel.sourceLanguage.code.ifEmpty {
+                            viewModel.translation.detectedLanguage.orEmpty()
                         }
-                    }
-
-                    Spacer(
-                        modifier = Modifier
-                            .width(0.dp)
-                    )
-
-                    ButtonWithIcon(
-                        text = stringResource(R.string.forget),
-                        icon = Icons.Default.Clear
-                    ) {
-                        hasClip = false
-
-                        val manager =
-                            ContextCompat.getSystemService(context, ClipboardManager::class.java)
-                                ?: return@ButtonWithIcon
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            manager.clearPrimaryClip()
-                        } else {
-                            manager.setPrimaryClip(ClipData(null))
+                    ),
+                    showLanguageSelector = showLanguageSelector,
+                    largeTextFields = largeTextFields,
+                    focusRequester = focusRequester,
+                    setLanguage = {
+                        if (it == viewModel.targetLanguage) {
+                            viewModel.targetLanguage = viewModel.sourceLanguage
                         }
-
-                        viewModel.clearTranslation()
+                        viewModel.sourceLanguage = it
                     }
-                }
-            } else if (
-                viewModel.insertedText.isNotBlank() &&
-                !Preferences.get(Preferences.translateAutomatically, true)
-            ) {
-                ButtonWithIcon(
-                    text = stringResource(R.string.translate),
-                    icon = Icons.Default.Translate
                 ) {
-                    viewModel.translateNow()
+                    viewModel.insertedText = it
+                    hasClip = clipboard.hasText()
+                    viewModel.enqueueTranslation()
+                }
+
+                if (viewModel.translating) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(10.dp)
+                    )
+                } else {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(10.dp)
+                            .size(70.dp, 1.dp)
+                    )
+                }
+
+                if (hasClip && viewModel.insertedText.isBlank()) {
+                    Row {
+                        ButtonWithIcon(
+                            text = stringResource(R.string.paste),
+                            icon = Icons.Default.ContentPaste
+                        ) {
+                            coroutineScope.launch {
+                                viewModel.insertedText = clipboard.getText().orEmpty()
+                                viewModel.translateNow()
+                            }
+                        }
+
+                        Spacer(
+                            modifier = Modifier
+                                .width(0.dp)
+                        )
+
+                        ButtonWithIcon(
+                            text = stringResource(R.string.forget),
+                            icon = Icons.Default.Clear
+                        ) {
+                            hasClip = false
+
+                            val manager =
+                                ContextCompat.getSystemService(context, ClipboardManager::class.java)
+                                    ?: return@ButtonWithIcon
+
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                manager.clearPrimaryClip()
+                            } else {
+                                manager.setPrimaryClip(ClipData(null))
+                            }
+
+                            viewModel.clearTranslation()
+                        }
+                    }
+                } else if (
+                    viewModel.insertedText.isNotBlank() &&
+                    !Preferences.get(Preferences.translateAutomatically, true)
+                ) {
+                    ButtonWithIcon(
+                        text = stringResource(R.string.translate),
+                        icon = Icons.Default.Translate
+                    ) {
+                        viewModel.translateNow()
+                    }
+                }
+
+            } else if (viewModel.translating && viewModel.translation.translatedText.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MorphingLoadingIndicator()
                 }
             }
 

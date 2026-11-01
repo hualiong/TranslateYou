@@ -17,6 +17,7 @@
 
 package net.youapps.translation_engines
 
+import net.youapps.translation_engines.ai.ChatCompletionsEngine
 import net.youapps.translation_engines.ap.ApEngine
 import net.youapps.translation_engines.bi.BingEngine
 import net.youapps.translation_engines.deepl.DeeplAuthenticatedFreeApiEngine
@@ -39,6 +40,7 @@ import net.youapps.translation_engines.ya.YandexEngine
 object TranslationEngines {
     fun getAllEngines(settingsProvider: EngineSettingsProvider) = listOf(
         MhEngine(settingsProvider),
+        ChatCompletionsEngine(settingsProvider),
         LTEngine(settingsProvider),
         LVEngine(settingsProvider),
         DeeplAuthenticatedFreeApiEngine(settingsProvider),

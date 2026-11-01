@@ -40,12 +40,15 @@ import com.bnyro.translate.util.JsonHelper
 import com.bnyro.translate.util.Preferences
 import com.bnyro.translate.util.TessHelper
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.youapps.translation_engines.Language
@@ -89,6 +92,7 @@ class TranslationModel : ViewModel() {
     val apiError = _apiError.asSharedFlow()
 
     private var simTranslationJobs = emptyList<Job>()
+    private var translationJob: Job? = null
 
     private var mediaPlayer: MediaPlayer? = null
     private var audioFile: File? = null
@@ -147,6 +151,9 @@ class TranslationModel : ViewModel() {
     }
 
     fun translateNow(cancelOnUnsupportedLanguages: Boolean = true) {
+        // a still running stream would keep writing into the ui after a state change
+        translationJob?.cancel()
+
         if (insertedText.isEmpty() || targetLanguage == sourceLanguage) {
             translation = Translation("")
             return
@@ -180,28 +187,48 @@ class TranslationModel : ViewModel() {
         translatedTexts = App.translationEngines
             .associate { it.name to Translation("") }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            val translation = try {
-                engine.translate(
-                    insertedText,
-                    sourceLanguage.code.takeIf { it.isNotEmpty() },
-                    targetLanguage.code
-                )
+        val engine = this.engine
+        val streamTranslation =
+            engine.supportsStreaming && Preferences.isStreamOutputEnabled(engine)
+
+        // a missing source code asks the engine to detect the language itself
+        val sourceCode = sourceLanguage.code.takeIf { it.isNotEmpty() }
+
+        // state is only written from the main thread, the engine already switches to
+        // its own dispatcher for the network request
+        translationJob = viewModelScope.launch {
+            try {
+                if (streamTranslation) {
+                    engine.translateStream(insertedText, sourceCode, targetLanguage.code)
+                        .flowOn(Dispatchers.IO)
+                        .collect { partial ->
+                            translation = partial
+                            translatedTexts = translatedTexts.toMutableMap().also {
+                                it[engine.name] = partial
+                            }.toMap()
+                        }
+                    if (insertedText.isNotEmpty()) saveToHistory()
+                } else {
+                    val translation = engine.translate(
+                        insertedText,
+                        sourceCode,
+                        targetLanguage.code
+                    )
+                    if (insertedText.isNotEmpty()) {
+                        this@TranslationModel.translation = translation
+                        translatedTexts = translatedTexts.toMutableMap().also {
+                            it[engine.name] = translation
+                        }.toMap()
+                        saveToHistory()
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("error", e.message.toString())
                 _apiError.emit(e)
-                translating = false
-                return@launch
             }
             translating = false
-
-            if (insertedText.isNotEmpty()) {
-                this@TranslationModel.translation = translation
-                translatedTexts = translatedTexts.toMutableMap().also {
-                    it[engine.name] = translation
-                }.toMap()
-                saveToHistory()
-            }
         }
 
         if (simTranslationEnabled) simTranslation()
@@ -266,6 +293,7 @@ class TranslationModel : ViewModel() {
     }
 
     fun clearTranslation() {
+        translationJob?.cancel()
         insertedText = ""
         translation = Translation("")
         translating = false

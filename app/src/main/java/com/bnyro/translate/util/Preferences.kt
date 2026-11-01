@@ -46,6 +46,9 @@ object Preferences {
     private const val instanceUrlKey = "instanceUrl"
     private const val apiKey = "apiKey"
     private const val selectedModel = "selectedEngine"
+    private const val systemPrompt = "systemPrompt"
+    private const val streamOutput = "streamOutput"
+private const val modelList = "modelList"
 
     lateinit var prefs: SharedPreferences
 
@@ -87,6 +90,12 @@ object Preferences {
     fun apiUrlPrefKey(engine: TranslationEngine): String = engine.name + instanceUrlKey
     fun selectedModelPrefKey(engine: TranslationEngine): String = engine.name + selectedModel
     fun simTranslationPrefKey(engine: TranslationEngine): String = engine.name + simultaneousTranslationKey
+    fun systemPromptPrefKey(engine: TranslationEngine): String = engine.name + systemPrompt
+    fun streamOutputPrefKey(engine: TranslationEngine): String = engine.name + streamOutput
+    fun modelListPrefKey(engine: TranslationEngine): String = engine.name + modelList
+
+    fun isStreamOutputEnabled(engine: TranslationEngine): Boolean =
+        get(streamOutputPrefKey(engine), true)
 
     fun isSimultaneousTranslationEnabled(engine: TranslationEngine): Boolean {
         val simTranslationKey = engine.name + simultaneousTranslationKey
@@ -112,6 +121,10 @@ class EnginePreferencesProviderImpl : EngineSettingsProvider {
         val selectedModelPrefKey = Preferences.selectedModelPrefKey(engine)
 
         return Preferences.get(selectedModelPrefKey, "").ifEmpty { null }
+    }
+
+    override fun getSystemPrompt(engine: TranslationEngine): String? {
+        return Preferences.get(Preferences.systemPromptPrefKey(engine), "").ifEmpty { null }
     }
 
 }

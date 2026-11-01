@@ -22,7 +22,6 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -97,10 +96,14 @@ class ShareActivity : TranslationActivity() {
                 },
                 text = {
                     TranslationComponent(
-                        modifier = Modifier.fillMaxSize(),
+                        // the popup only shows the translation, so it is as tall as its
+                        // content and only grows to the dialog's maximum height when needed
+                        modifier = Modifier.fillMaxWidth(),
                         viewModel = translationModel,
                         showLanguageSelector = true,
-                        largeTextFields = false
+                        largeTextFields = false,
+                        autoFocus = false,
+                        showSource = false
                     ) { e, important ->
                         context.toastFromMainThread(e)
                     }

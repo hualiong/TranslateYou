@@ -29,9 +29,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,9 +47,12 @@ import com.bnyro.translate.ext.toastFromMainThread
 import com.bnyro.translate.obj.ListPreferenceOption
 import com.bnyro.translate.ui.components.prefs.DropDownSelectPreference
 import com.bnyro.translate.ui.components.prefs.EditTextPreference
+import com.bnyro.translate.ui.components.prefs.EditableDropDownPreference
 import com.bnyro.translate.ui.components.prefs.ListPreferenceDialog
 import com.bnyro.translate.ui.components.prefs.PreferenceItem
+import com.bnyro.translate.ui.components.prefs.SwitchPreference
 import com.bnyro.translate.util.Preferences
+import kotlinx.coroutines.launch
 import net.youapps.translation_engines.ApiKeyState
 
 @Composable
@@ -123,6 +128,8 @@ fun EnginePref() {
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
                 if (engine.apiKeyState != ApiKeyState.DISABLED) {
                     EditTextPreference(
                         preferenceKey = Preferences.apiKeyPrefKey(engine),
@@ -136,6 +143,102 @@ fun EnginePref() {
                         apiKey = it
                         engineModified = true
                     }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (engine.modelModifiable) {
+                    var model by remember {
+                        mutableStateOf(engine.getSelectedModel().orEmpty())
+                    }
+                    val scope = rememberCoroutineScope()
+
+                    // the model list rarely changes, so it is cached instead of being
+                    // requested every time the dropdown is opened
+                    var cachedModels by remember {
+                        mutableStateOf(
+                            Preferences.get(Preferences.modelListPrefKey(engine), "")
+                                .split("\n")
+                                .filter { it.isNotBlank() }
+                        )
+                    }
+                    var modelsLoading by remember {
+                        mutableStateOf(false)
+                    }
+
+                    fun loadModels() {
+                        if (modelsLoading) return
+
+                        modelsLoading = true
+                        scope.launch {
+                            runCatching { engine.getModels().sorted() }
+                                .onSuccess { models ->
+                                    if (models.isEmpty()) {
+                                        context.toastFromMainThread(
+                                            context.getString(R.string.no_models_found)
+                                        )
+                                    } else {
+                                        cachedModels = models
+                                        Preferences.put(
+                                            Preferences.modelListPrefKey(engine),
+                                            models.joinToString("\n")
+                                        )
+                                    }
+                                }
+                                .onFailure {
+                                    context.toastFromMainThread(it.localizedMessage.orEmpty())
+                                }
+
+                            modelsLoading = false
+                        }
+                    }
+
+                    LaunchedEffect(engine) {
+                        if (cachedModels.isEmpty()) loadModels()
+                    }
+
+                    EditableDropDownPreference(
+                        preferenceKey = Preferences.selectedModelPrefKey(engine),
+                        value = model,
+                        labelText = stringResource(R.string.model),
+                        options = cachedModels,
+                        onValueChange = { model = it },
+                        refreshLabel = stringResource(R.string.refresh_models),
+                        onRefresh = { loadModels() }
+                    )
+                }
+
+                if (engine.supportsStreaming) {
+                    Spacer(
+                        modifier = Modifier
+                            .height(10.dp)
+                    )
+
+                    SwitchPreference(
+                        preferenceKey = Preferences.streamOutputPrefKey(engine),
+                        defaultValue = true,
+                        preferenceTitle = stringResource(R.string.streaming_output),
+                        preferenceSummary = stringResource(R.string.streaming_output_summary)
+                    )
+                }
+
+                if (engine.promptModifiable) {
+                    var systemPrompt by remember {
+                        mutableStateOf(
+                            engine.getSystemPrompt() ?: engine.defaultSystemPrompt.orEmpty()
+                        )
+                    }
+
+                    Spacer(
+                        modifier = Modifier
+                            .height(10.dp)
+                    )
+
+                    EditTextPreference(
+                        preferenceKey = Preferences.systemPromptPrefKey(engine),
+                        value = systemPrompt,
+                        labelText = stringResource(R.string.system_prompt)
+                    ) { systemPrompt = it }
                 }
 
                 when {

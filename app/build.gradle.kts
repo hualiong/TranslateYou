@@ -36,10 +36,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("D:/Software/Android/sign/hualiang.jks")
+            storePassword = "hualiang"
+            keyAlias = "hualiang"
+            keyPassword = "hualiang"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

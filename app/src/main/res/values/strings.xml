@@ -44,6 +44,14 @@
     <string name="translation_api">Translation API</string>
     <string name="selected_engine">Selected engine</string>
     <string name="st_selected_engine">Engine that the selected server uses for translating</string>
+    <string name="model">Model</string>
+    <string name="fetch_models">Fetch model list</string>
+    <string name="refresh_models">Refresh model list</string>
+    <string name="fetch_models_summary">Load available models from the API endpoint</string>
+    <string name="no_models_found">No models found</string>
+    <string name="system_prompt">System prompt (optional)</string>
+    <string name="streaming_output">Streaming output</string>
+    <string name="streaming_output_summary">Show the translation while it is being generated</string>
     <string name="translation">Translation</string>
     <string name="general">General</string>
     <string name="app_language">App language</string>

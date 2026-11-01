@@ -96,4 +96,12 @@
     <string name="failed_to_initialize_engine">无法初始化 %1$s 引擎：%2$s</string>
     <string name="export_to_text_file">导出到文本文件</string>
     <string name="successfully_exported">导出成功！</string>
+    <string name="model">模型</string>
+    <string name="fetch_models">获取模型列表</string>
+    <string name="fetch_models_summary">从接口加载可用的模型列表。</string>
+    <string name="refresh_models">刷新模型列表</string>
+    <string name="no_models_found">未获取到模型</string>
+    <string name="system_prompt">系统提示词（可选）</string>
+    <string name="streaming_output">流式输出</string>
+    <string name="streaming_output_summary">在生成过程中实时显示译文。</string>
 </resources>

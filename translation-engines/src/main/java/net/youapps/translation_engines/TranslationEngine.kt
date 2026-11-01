@@ -17,6 +17,11 @@
 
 package net.youapps.translation_engines
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+
 enum class ApiKeyState {
     DISABLED,
     OPTIONAL,
@@ -45,6 +50,13 @@ interface EngineSettingsProvider {
      * This is only relevant if [TranslationEngine.supportedModels] is not empty.
      */
     fun getSelectedModel(engine: TranslationEngine): String?
+
+    /**
+     * Get the custom system prompt of the engine.
+     *
+     * This is only relevant if [TranslationEngine.promptModifiable] is `true`.
+     */
+    fun getSystemPrompt(engine: TranslationEngine): String? = null
 }
 
 abstract class TranslationEngine(private val settingsProvider: EngineSettingsProvider) {
@@ -85,6 +97,28 @@ abstract class TranslationEngine(private val settingsProvider: EngineSettingsPro
     open val supportedModels: List<String> = listOf()
 
     /**
+     * Whether [translateStream] yields growing partial results while the server is generating.
+     */
+    open val supportsStreaming: Boolean = false
+
+    /**
+     * Set to true, if the model can be entered manually instead of being picked from [supportedModels].
+     */
+    open val modelModifiable: Boolean = false
+
+    /**
+     * Set to true, if the engine sends a user-overridable system prompt
+     * via [EngineSettingsProvider.getSystemPrompt].
+     */
+    open val promptModifiable: Boolean = false
+
+    /**
+     * Prompt to show in the settings as long as the user hasn't customized it via
+     * [EngineSettingsProvider.getSystemPrompt].
+     */
+    open val defaultSystemPrompt: String? = null
+
+    /**
      * Initialize the translation engine using the API url provided by [settingsProvider] using [EngineSettingsProvider.getApiUrl].
      *
      * This must be called once before using the engine for the first time and whenever the API url has changed.
@@ -107,6 +141,21 @@ abstract class TranslationEngine(private val settingsProvider: EngineSettingsPro
     abstract suspend fun translate(query: String, source: String?, target: String): Translation
 
     /**
+     * Translate the [query] text, emitting intermediate results while the translation is being generated.
+     *
+     * The default implementation emits the final result of [translate] exactly once.
+     */
+    open fun translateStream(query: String, source: String?, target: String): Flow<Translation> =
+        flow { emit(translate(query, source, target)) }.flowOn(Dispatchers.IO)
+
+    /**
+     * Get the list of models offered by the engine's API endpoint.
+     *
+     * This is only relevant if [modelModifiable] is `true` and may return an empty list.
+     */
+    open suspend fun getModels(): List<String> = emptyList()
+
+    /**
      * Run Text To Speech on a given [query] text.
      *
      * This only works if [supportsAudio] is `true`.
@@ -122,6 +171,7 @@ abstract class TranslationEngine(private val settingsProvider: EngineSettingsPro
     fun getUrl() = settingsProvider.getApiUrl(this) ?: defaultUrl
     fun getApiKey() = settingsProvider.getApiKey(this)
     fun getSelectedModel() = settingsProvider.getSelectedModel(this) ?: supportedModels.firstOrNull()
+    fun getSystemPrompt() = settingsProvider.getSystemPrompt(this)
 
     override fun equals(other: Any?): Boolean {
         if (other is TranslationEngine) {
