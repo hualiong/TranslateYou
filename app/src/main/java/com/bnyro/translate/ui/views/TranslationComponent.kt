@@ -232,45 +232,67 @@ fun TranslationComponent(
                     }
                 }
 
-            } else if (viewModel.translating && viewModel.translation.translatedText.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MorphingLoadingIndicator()
-                }
             }
 
-            if (!viewModel.simTranslationEnabled) {
-                TranslationFieldForTranslation(
-                    viewModel,
-                    viewModel.translation,
-                    showLanguageSelector = showLanguageSelector,
-                    largeTextFields = largeTextFields
-                )
-            } else {
-                viewModel.translatedTexts.filter { it.value.translatedText.isNotEmpty() }
-                    .forEach { (engineName, translation) ->
-                        val engine = App.translationEngines.find { it.name == engineName }
-
-                        Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                            TranslationFieldForTranslation(
-                                viewModel,
-                                translation,
-                                showLanguageSelector = showLanguageSelector,
-                                largeTextFields = largeTextFields,
-                                engine = engine
-                            )
+            // the share popup only shows the translation, so keep that area at least as tall as
+            // the loading indicator: the dialog does not shrink when the first text arrives
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (showSource) {
+                            Modifier
+                        } else {
+                            Modifier.heightIn(min = 120.dp)
                         }
-
-                        HorizontalDivider(
-                            modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .width(140.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (!viewModel.simTranslationEnabled) {
+                        TranslationFieldForTranslation(
+                            viewModel,
+                            viewModel.translation,
+                            showLanguageSelector = showLanguageSelector,
+                            largeTextFields = largeTextFields
                         )
+                    } else {
+                        viewModel.translatedTexts.filter { it.value.translatedText.isNotEmpty() }
+                            .forEach { (engineName, translation) ->
+                                val engine = App.translationEngines.find { it.name == engineName }
+
+                                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                                    TranslationFieldForTranslation(
+                                        viewModel,
+                                        translation,
+                                        showLanguageSelector = showLanguageSelector,
+                                        largeTextFields = largeTextFields,
+                                        engine = engine
+                                    )
+                                }
+
+                                HorizontalDivider(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .width(140.dp)
+                                )
+                            }
                     }
+                }
+
+                if (
+                    !showSource &&
+                    viewModel.translating &&
+                    viewModel.translation.translatedText.isEmpty()
+                ) {
+                    Box(
+                        modifier = Modifier.matchParentSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MorphingLoadingIndicator()
+                    }
+                }
             }
         }
 
